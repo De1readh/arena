@@ -39,10 +39,15 @@ let GUC={};  // denge aracının denediği geçici hasar çarpanları {AD: x}
 const KR=KARAKTERLER.map(k=>UCUS==null?k:{...k,ucar:UCUS=='1'});
 const cv=document.querySelector('canvas'),c=cv.getContext('2d'),wn=document.getElementById('wn');
 // arena sabit oranlı dikdörtgen, ekranın ortasında; ?oran=1.3 ile denenebilir
-const ORAN=+Q.get('oran')||1.5,W=Math.round(H*ORAN);let SC=1,OX=0,OY=0;
+// ?dikey: 9:16 video düzeni denemesi. 1 göstergeler üstte-altta, 2 ikisi üstte yan yana, 3 dikey arena (denge yeniden ölçülmeli)
+const DIKEY=+Q.get('dikey')||0,DZ=[,{T:324,B:324,s:1.5},{T:470,B:330,s:1.35},{T:330,B:300,s:1.1}][DIKEY];
+const ORAN=+Q.get('oran')||(DIKEY==3?.75:DIKEY==1?1.3:1.5),W=Math.round(H*ORAN);let SC=1,OX=0,OY=0;
 // KEN: yan göstergelere ayrılan en az boşluk; dar ekranda arena küçülür, gösterge hiçbir zaman arenaya girmez
 const KEN=95;
-function boyut(){const d=devicePixelRatio||1;cv.width=innerWidth*d;cv.height=innerHeight*d;SC=Math.min(cv.height/H,cv.width/(W+2*KEN))*.96;
+function boyut(){const d=devicePixelRatio||1;
+ if(DZ){const bw=Math.min(innerWidth,innerHeight*9/16),bh=bw*16/9;cv.style.width=bw+'px';cv.style.height=bh+'px';cv.style.margin='0 auto';cv.width=bw*d;cv.height=bh*d;
+  const UH=Math.max(H+DZ.T+DZ.B,(W+40)*16/9);SC=cv.height/UH;OX=(cv.width/SC-W)/2;OY=DZ.T+(UH-H-DZ.T-DZ.B)/2;return}
+cv.width=innerWidth*d;cv.height=innerHeight*d;SC=Math.min(cv.height/H,cv.width/(W+2*KEN))*.96;
  OX=(cv.width/SC-W)/2;OY=(cv.height/SC-H)/2}
 
 // ---- oyun durumu ve karakter dosyasının kullandığı yardımcılar
@@ -136,8 +141,32 @@ function kafaCiz(b,x,y,r,don,bx,by){c.save();c.translate(x,y);c.rotate(don);c.sc
 function canHalka(b,x,y,R,lw){c.save();c.lineCap='round';c.lineWidth=lw;c.strokeStyle=b.renk;c.globalAlpha=.16;c.beginPath();c.arc(x,y,R,0,TAU);c.stroke();
  c.globalAlpha=1;c.beginPath();c.arc(x,y,R,-Math.PI/2,-Math.PI/2+TAU*Math.max(0,b.dh/b.mx));c.stroke();c.restore()}
 // arenanın iki yanındaki boşlukta Smash tarzı gösterge: portre, isim, kalan can, son hasar (boşluk KEN ile hep ayrılır)
+// dikey düzen 1: her dövüşçüye arenanın üstünde/altında eğik kesimli bant; büyük kafa ileride karakterin kendi görseliyle değişecek
+let NOKTA;function bantCiz(b){const ust=b.taraf<0,v=b.hudVur,L=-OX,R=W+OX,y0=ust?-OY+8:H+12,y1=ust?-12:H+OY-8,hh=y1-y0,wp=(R-L)*.5,e=34,
+  px=ust?L:R,ic=ust?L+wp:R-wp,sy=ust?1:-1;  // px: görselin yaslandığı kenar, ic: eğik kesimin ortası
+ if(!NOKTA){const k=document.createElement('canvas');k.width=k.height=7;const x=k.getContext('2d');x.fillStyle='#000';x.beginPath();x.arc(3.5,3.5,1.5,0,TAU);x.fill();NOKTA=c.createPattern(k,'repeat')}
+ c.save();if(v>0)c.translate((Math.random()-.5)*v*.6,(Math.random()-.5)*v*.3);c.globalAlpha=b.hp>0?1:.35;
+ const pc=new Path2D();pc.moveTo(px,y0);pc.lineTo(ic+e*sy,y0);pc.lineTo(ic-e*sy,y1);pc.lineTo(px,y1);pc.closePath();
+ c.save();c.clip(pc);const gx=(px+ic)/2,gy=(y0+y1)/2,g=c.createRadialGradient(gx,gy,10,gx,gy,wp*.8);g.addColorStop(0,b.renk+'66');g.addColorStop(1,'#000');c.fillStyle=g;c.fillRect(Math.min(px,ic)-e,y0,wp+2*e,hh);
+ c.strokeStyle=b.renk;c.globalAlpha*=.12;c.lineWidth=10;for(let i=-hh;i<wp+hh;i+=26){c.beginPath();c.moveTo(Math.min(px,ic)+i,y1);c.lineTo(Math.min(px,ic)+i+hh*.6,y0);c.stroke()}  // eğik hız şeritleri
+ c.globalAlpha=b.hp>0?1:.35;kafaCiz(b,gx,gy+hh*.1,hh*.42,0,ust?1:-1,0);
+ c.globalAlpha*=.4;c.fillStyle=NOKTA;c.fillRect(Math.min(px,ic)-e,y0,wp+2*e,hh);c.globalAlpha=b.hp>0?1:.35;  // tram noktaları: düz yapıştırma görüntüsünü kırar
+ const f=c.createLinearGradient(px,0,ic,0);f.addColorStop(0,'#0000');f.addColorStop(.7,'#0000');f.addColorStop(1,'#000c');c.fillStyle=f;c.fillRect(Math.min(px,ic)-e,y0,wp+2*e,hh);
+ if(v>0){c.globalAlpha=v/16*.5;c.fillStyle='#fff';c.fill(pc)}c.restore();
+ c.strokeStyle=b.renk;c.lineWidth=3;c.shadowColor=b.renk;c.shadowBlur=14;c.beginPath();c.moveTo(ic+e*sy,y0);c.lineTo(ic-e*sy,y1);c.stroke();c.shadowBlur=0;  // neon kesik
+ const tx=ust?ic+e+18:ic-e-18,al=ust?'left':'right',bw=(R-L)-wp-e-50;c.textAlign=al;c.textBaseline='alphabetic';
+ c.font='italic 600 40px JB,monospace';c.fillStyle=b.renk;c.fillText(b.etiket||b.ad,tx,y0+hh*.36);
+ const bx=ust?tx:tx-bw,by=y0+hh*.36+14;c.fillStyle=b.renk+'2a';c.fillRect(bx,by,bw,8);c.fillStyle=b.renk;const u=Math.max(0,b.dh/b.mx);c.fillRect(ust?bx:bx+bw*(1-u),by,bw*u,8);
+ const hv=Math.max(0,Math.ceil(b.dh)),dus=b.hp<b.mx*.35,z=1+(v>0?v/16*.25:0);c.font='600 '+Math.round(70*z)+'px JB,monospace';c.lineJoin='round';c.lineWidth=6;c.strokeStyle='#000';
+ c.strokeText(hv,tx,y0+hh*.36+92);c.fillStyle=v>0?b.renk:dus?(o.t%40<20?'#ff5a6a':'#f3ead7'):'#f3ead7';c.fillText(hv,tx,y0+hh*.36+92);
+ const nw=c.measureText(hv).width;b.hs.forEach((h,i)=>{const uu=h.l/60,x=tx+(ust?1:-1)*(nw+16),y=y0+hh*.36+52+eo(uu,3)*8+(b.hs.length-1-i)*20;
+  c.globalAlpha=(uu>.6?1-(uu-.6)/.4:1)*(b.hp>0?1:.35);c.font='600 '+(h.kr?20:16)+'px JB,monospace';c.lineWidth=4;const t=(h.iy?'+':'−')+Math.max(1,Math.round(h.d))+(h.kr?'!':'');
+  c.strokeText(t,x,y);c.fillStyle=h.iy?'#7be05a':h.kr?o.rakip(b).renk:'#f3ead7';c.fillText(t,x,y)});
+ c.restore()}
 function hudCiz(){const bos=Math.min(OX,150);
- for(const b of o.T){const sag=b.taraf>0,cx=sag?W+bos/2:-bos/2,cy=H/2,s=Math.min(1.1,bos/110),v=b.hudVur;
+ if(DIKEY==1){for(const b of o.T)bantCiz(b);return}
+ for(const b of o.T){const sag=b.taraf>0,v=b.hudVur;let cx=sag?W+bos/2:-bos/2,cy=H/2,s=Math.min(1.1,bos/110);
+  if(DZ){s=DZ.s;if(DIKEY==1){cx=W/2;cy=(sag?H+OY/2:-OY/2)-32*s}else{cx=W/2+(sag?1:-1)*(W+2*OX)*.27;cy=-OY+150+66*s}}
   c.save();c.translate(cx+(v>0?(Math.random()-.5)*v*.5:0),cy);c.scale(s,s);c.globalAlpha=b.hp>0?1:.35;
   o.isik(c,0,-30,60,b.renk,.3);canHalka(b,0,-30,36,3);kafaCiz(b,0,-30,31,0,sag?-1:1,0);
   if(v>0){c.globalAlpha=v/16*.6;c.fillStyle='#fff';c.beginPath();c.arc(0,-30,31,0,TAU);c.fill();c.globalAlpha=b.hp>0?1:.35}
@@ -148,7 +177,8 @@ function hudCiz(){const bos=Math.min(OX,150);
   b.hs.forEach((h,i)=>{const u=h.l/60,y=82+eo(u,3)*8+(b.hs.length-1-i)*17;  // en yeni üstte, eskiler alta kayarc.globalAlpha=(u>.6?1-(u-.6)/.4:1)*(b.hp>0?1:.35);
    c.font='600 '+(h.kr?17:14)+'px JB,monospace';c.lineWidth=4;const t=(h.iy?'+':'−')+Math.max(1,Math.round(h.d))+(h.kr?'!':'');
    c.strokeText(t,0,y);c.fillStyle=h.iy?'#7be05a':h.kr?o.rakip(b).renk:'#f3ead7';c.fillText(t,0,y)});
-  c.restore()}}
+  c.restore()}
+ if(DIKEY>1){c.save();c.textAlign='center';c.textBaseline='middle';c.font='600 30px JB,monospace';c.fillStyle='#fff';c.globalAlpha=.45;c.fillText('VS',W/2,-OY+150+36*DZ.s);c.restore()}}
 // darbe kıvılcımı: darbe noktasında vuranın renginde halka ve geriye saçılan ışınlar
 function kivilcimCiz(f){const u=f.l/f.m,al=1-u;c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
  o.isik(c,f.x,f.y,(f.kr?40:26)*(1-u*.5),f.renk,al*.9);
@@ -186,7 +216,7 @@ function ciz(){c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,cv.
  c.save();c.globalCompositeOperation='lighter';
  for(const p of o.pr){c.globalAlpha=1-p.l/p.m;c.fillStyle=p.renk;c.beginPath();c.arc(p.x,p.y,p.s*(1-p.l/p.m*.5),0,TAU);c.fill()}c.restore();
  for(const f of o.fx)kivilcimCiz(f);
- if(o.kare){kareSiyahBeyaz(c,o.kare,o);o.kare=null;c.setTransform(SC,0,0,SC,OX*SC,OY*SC);const bos=Math.min(OX,150);c.fillStyle='#000';c.fillRect(-bos,0,bos-1,H);c.fillRect(W+1,0,bos,H);hudCiz()}}  // hit frame: o karede çizilen her şey siyah-beyaz döner
+ if(o.kare){kareSiyahBeyaz(c,o.kare,o);o.kare=null;c.setTransform(SC,0,0,SC,OX*SC,OY*SC);c.fillStyle='#000';c.beginPath();c.rect(-OX,-OY,cv.width/SC,cv.height/SC);c.rect(-1,-1,W+2,H+2);c.fill('evenodd');hudCiz()}}  // hit frame: o karede çizilen her şey siyah-beyaz döner
 
 let acc=0,last=0;
 const YAVAS=.01;  // maç bitince oyun 100 kat ağır çekim: o anda durmuş gibi görünür ama durmaz
@@ -269,7 +299,7 @@ if(Q.has('denge'))dengeSayfa();else if(SIM)simSayfa();else{addEventListener('res
 </script>
 <script>
 // Karakter seçimi: sağ alttaki soluk VS tuşu. Dock iframe'inde, demo ve denge sayfalarında yok
-if(!SIM&&!Q.has('demo')&&window.top===window.self){
+if(!SIM&&!DIKEY&&!Q.has('demo')&&window.top===window.self){
  const el=(t,cl,ust)=>{const e=document.createElement(t);if(cl)e.className=cl;ust?.appendChild(e);return e};
  const vsb=el('button','',document.body);vsb.id='vsb';vsb.textContent='VS';vsb.setAttribute('aria-label','Karakter seç');
  const sec=el('div','',document.body);sec.id='sec';el('div','ark',sec).onclick=()=>sec.classList.remove('on');

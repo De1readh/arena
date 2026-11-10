@@ -75,6 +75,7 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
   - Oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, mürekkep siluetler), siyah hız çizgileri çıkar.
   - `ters=false` sürümü sadedir: daha kısa donma, yine siyah-beyaz kare ve beyaz flaş.
   - Siyah-beyaz geçiş `ciz()` sonunda `kareSiyahBeyaz` ile yapılır (o karedeki her efekt döner, yan göstergeler renkli yeniden çizilir). `ctx.filter` kullanma: PC'de kareyi ikiye katlıyor, iOS Safari'de yok (renkli negatif kalıyordu); karışım modları (saturation, difference, color-burn) kullanılır.
+- **Dikey video düzeni (deneme):** `?dikey=1` 9:16 çerçeve, göstergeler arenanın üstünde ve altında eğik kesimli bantlarda (büyük kafa ileride karakter görseliyle değişecek), arena `oran` 1.3 (denge bu oranda ölçülmedi), VS menüsü gizli. `?dikey=2` ikisi üstte, `?dikey=3` dikey arena: kullanıcı 1'i seçti.
 - **Maç sonu:** donmaz; 4 sn boyunca 100 kat ağır çekim (`YAVAS` .01, o anda durmuş gibi görünür), toplar kareler arasında kayar.
 - **Futbol topu:**
   - Arenada tek top var; yalnızca topla oynayan karakter (`top: true`: Isagi, Kaiser) varken doğar.
