@@ -73,7 +73,9 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
 - **Hit frame (`vurusKaresi`):**
   - Yalnızca büyük anlarda kullanılır.
   - Oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, mürekkep siluetler), siyah hız çizgileri çıkar.
-  - `ters=false` sürümü sadedir: kısa donma ve beyaz flaş.
+  - `ters=false` sürümü sadedir: daha kısa donma, yine siyah-beyaz kare ve beyaz flaş.
+  - Siyah-beyaz geçiş `ciz()` sonunda `kareSiyahBeyaz` ile yapılır (o karedeki her efekt döner, yan göstergeler renkli yeniden çizilir). `ctx.filter` kullanma: PC'de kareyi ikiye katlıyor, iOS Safari'de yok (renkli negatif kalıyordu); karışım modları (saturation, difference, color-burn) kullanılır.
+- **Maç sonu:** donmaz; 4 sn boyunca 10 kat ağır çekim (`YAVAS`), toplar kareler arasında kayar.
 - **Futbol topu:**
   - Arenada tek top var; yalnızca topla oynayan karakter (`top: true`: Isagi, Kaiser) varken doğar.
   - Başka skiller topa dokunmaz.

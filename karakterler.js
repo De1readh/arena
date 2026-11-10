@@ -575,21 +575,31 @@ function darbeFx(o, x, y, guc = 1) {
         c.beginPath(); c.moveTo(m.x + ca * r0 - sa * w, m.y + sa * r0 + ca * w); c.lineTo(m.x + ca * r1, m.y + sa * r1); c.lineTo(m.x + ca * r0 + sa * w, m.y + sa * r0 - ca * w); c.fill(); }
       c.restore(); } });
 }
-// anime "hit frame" (bütün karakterler kullanabilir): oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, koyu silüetler), darbeye odaklanan
-// kalın siyah çizgiler; sonra beyaz flaş söner. ters = false sade sürüm: tersine dönmez, kısa donma, beyaz flaş ve çizgiler. Yalnızca büyük anlarda kullan.
+// anime "hit frame" (bütün karakterler kullanabilir): oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, mürekkep silüetler), darbeye odaklanan
+// kalın siyah çizgiler; sonra beyaz flaş söner. ters = false sade sürüm: daha kısa donma. Yalnızca büyük anlarda kullan.
+// Siyah-beyaz geçiş ciz()'in sonunda (kareSiyahBeyaz) yapılır ki o karede çizilen her efekt (Kaiser'in gülü, parçacıklar) de dönsün.
 function vurusKaresi(o, x, y, guc = 1, ters = true) {
   if (o.sim) return; o.dur = Math.max(o.dur, Math.round((ters ? 6 : 3) + 4 * guc)); o.sars(5 + 3 * guc);
-  o.ekle({ x, y, omur: 4 + guc * 2 | 0, guc, tr: ters, cz: Array.from({ length: 28 }, () => [rnd(0, TAU_), rnd(.3, 1)]),
-    ciz(c, m, o) { const ters = m.tr && (m.l <= 1 || (m.guc > 1.5 && m.l == 3)), g = m.guc; // aynı tick'te eklenen nesne bir kez ilerler, ilk kare l = 1
+  o.ekle({ x, y, omur: 4 + guc * 2 | 0, guc, cz: Array.from({ length: 28 }, () => [rnd(0, TAU_), rnd(.3, 1)]),
+    ciz(c, m, o) { if (m.l <= 1 || (m.guc > 1.5 && m.l == 3)) { o.kare = m; return; } // aynı tick'te eklenen nesne bir kez ilerler, ilk kare l = 1
       c.save(); c.beginPath(); c.rect(6, 6, o.W - 12, o.H - 12); c.clip();
-      if (ters) { if ('filter' in c) { const T = c.getTransform(); c.setTransform(1, 0, 0, 1, 0, 0); c.filter = 'grayscale(1) invert(1) contrast(1.9)'; c.drawImage(c.canvas, 0, 0); c.filter = 'none'; c.setTransform(T); } // siyah-beyaz: beyaz zemin, mürekkep siluetler (kırpma alanı korunur)
-        else { c.globalCompositeOperation = 'difference'; c.fillStyle = '#fff'; c.fillRect(0, 0, o.W, o.H); c.globalCompositeOperation = 'source-over'; } }
-      else { c.globalAlpha = .45 * (1 - m.l / m.omur); c.fillStyle = '#fff'; c.fillRect(0, 0, o.W, o.H); }
-      c.fillStyle = ters ? '#000' : '#fff'; c.globalAlpha = ters ? .92 : .5 * (1 - m.l / m.omur);
-      for (const [a, k] of m.cz) { const r0 = 34 + 70 * (1 - k), w = 9 * k * g, ca = Math.cos(a), sa = Math.sin(a);
-        c.beginPath(); c.moveTo(m.x + ca * r0, m.y + sa * r0); c.lineTo(m.x + ca * 800 - sa * w, m.y + sa * 800 + ca * w); c.lineTo(m.x + ca * 800 + sa * w, m.y + sa * 800 - ca * w); c.fill(); }
-      if (ters) { c.globalAlpha = 1; c.strokeStyle = '#000'; c.lineWidth = 3 * g; c.beginPath(); c.arc(m.x, m.y, 18 * g, 0, TAU_); c.stroke(); }
-      c.restore(); } });
+      c.globalAlpha = .45 * (1 - m.l / m.omur); c.fillStyle = '#fff'; c.fillRect(0, 0, o.W, o.H);
+      c.globalAlpha = .5 * (1 - m.l / m.omur); vurusCizgi(c, m, false); c.restore(); } });
+}
+function vurusCizgi(c, m, ters) {
+  const g = m.guc; c.fillStyle = ters ? '#000' : '#fff';
+  for (const [a, k] of m.cz) { const r0 = 34 + 70 * (1 - k), w = 9 * k * g, ca = Math.cos(a), sa = Math.sin(a);
+    c.beginPath(); c.moveTo(m.x + ca * r0, m.y + sa * r0); c.lineTo(m.x + ca * 800 - sa * w, m.y + sa * 800 + ca * w); c.lineTo(m.x + ca * 800 + sa * w, m.y + sa * 800 - ca * w); c.fill(); }
+  if (ters) { c.globalAlpha = 1; c.strokeStyle = '#000'; c.lineWidth = 3 * g; c.beginPath(); c.arc(m.x, m.y, 18 * g, 0, TAU_); c.stroke(); }
+}
+// arenayı siyah-beyaz negatife çevirir: ctx.filter yerine karışım modları (filtre PC'de kareyi ikiye katlıyordu, iOS'ta hiç yok, renkli negatif kalıyordu)
+function kareSiyahBeyaz(c, m, o) {
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'saturation'; c.fillStyle = '#808080'; c.fillRect(0, 0, c.canvas.width, c.canvas.height); c.restore(); // arenadan taşan efektler de renksiz; yan göstergeleri ciz() renkli yeniden çizer
+  c.save(); c.beginPath(); c.rect(6, 6, o.W - 12, o.H - 12); c.clip();
+  c.globalCompositeOperation = 'saturation'; c.fillStyle = '#808080'; c.fillRect(0, 0, o.W, o.H); // renksiz: yalnızca parlaklık kalır
+  c.globalCompositeOperation = 'difference'; c.fillStyle = '#fff'; c.fillRect(0, 0, o.W, o.H);    // ters: siyah zemin beyaz, neon mürekkep
+  c.globalCompositeOperation = 'color-burn'; c.fillStyle = '#b0b0b0'; c.fillRect(0, 0, o.W, o.H); // kontrast: ara tonlar koyulaşır, beyaz kalır
+  c.globalCompositeOperation = 'source-over'; c.globalAlpha = .92; vurusCizgi(c, m, true); c.restore();
 }
 // şut anı: kısa donma, şut yönünde arenayı yaran hız çizgileri ve önde açılan hava dalgası
 function sutAni(o, x, y, a, guc = 1) {

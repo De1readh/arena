@@ -185,7 +185,8 @@ function ciz(){c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,cv.
  for(const n of o.nes)if(!n.alt&&n.ciz)n.ciz(c,n,o);
  c.save();c.globalCompositeOperation='lighter';
  for(const p of o.pr){c.globalAlpha=1-p.l/p.m;c.fillStyle=p.renk;c.beginPath();c.arc(p.x,p.y,p.s*(1-p.l/p.m*.5),0,TAU);c.fill()}c.restore();
- for(const f of o.fx)kivilcimCiz(f)}
+ for(const f of o.fx)kivilcimCiz(f);
+ if(o.kare){kareSiyahBeyaz(c,o.kare,o);o.kare=null;c.setTransform(SC,0,0,SC,OX*SC,OY*SC);const bos=Math.min(OX,150);c.fillStyle='#000';c.fillRect(-bos,0,bos-1,H);c.fillRect(W+1,0,bos,H);hudCiz()}}  // hit frame: o karede çizilen her şey siyah-beyaz döner
 
 let acc=0,last=0;
 const YAVAS=.1;  // maç bitince oyun 10 kat ağır çekimde sürer (donmaz)
