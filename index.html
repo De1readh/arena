@@ -189,7 +189,7 @@ function ciz(){c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,cv.
  if(o.kare){kareSiyahBeyaz(c,o.kare,o);o.kare=null;c.setTransform(SC,0,0,SC,OX*SC,OY*SC);const bos=Math.min(OX,150);c.fillStyle='#000';c.fillRect(-bos,0,bos-1,H);c.fillRect(W+1,0,bos,H);hudCiz()}}  // hit frame: o karede çizilen her şey siyah-beyaz döner
 
 let acc=0,last=0;
-const YAVAS=.02;  // maç bitince oyun 50 kat ağır çekimde süzülür: neredeyse donar ama durmaz
+const YAVAS=.01;  // maç bitince oyun 100 kat ağır çekim: o anda durmuş gibi görünür ama durmaz
 function dongu(t){const dt=Math.min(100,t-(last||t));last=t;acc+=dt;let n=0;
  while(acc>=TS-1e-6&&n<8){if(o.bitti){o.yv=(o.yv||0)+YAVAS;if(o.yv>=1){o.yv--;for(const b of o.T){b.px=b.x;b.py=b.y}tick()}fxTick(YAVAS)}else{if(o.dur>0)o.dur--;else tick();fxTick()}acc-=TS;n++}if(acc>TS)acc=0;  // shortcut: ara kare yumuşatma yok, 60 Hz ekranda fark etmez; 120+ Hz ekranda takılırsa eklenir
  if(o.bitti&&o.T[0].px!=null){const u=o.yv;for(const b of o.T){b.gx=b.x;b.gy=b.y;b.x=b.px+(b.x-b.px)*u;b.y=b.py+(b.y-b.py)*u}ciz();for(const b of o.T){b.x=b.gx;b.y=b.gy}}  // ağır çekimde toplar iki adım arasında kayar
