@@ -6,6 +6,7 @@
 <title>Arena</title>
 <style>
 @font-face{font-family:JB;src:url(fonts/jetbrainsmono-latin.woff2) format('woff2');font-weight:100 800}
+@font-face{font-family:JB;src:url(fonts/jetbrainsmono-latin-ext.woff2) format('woff2');font-weight:100 800;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F}
 html,body{margin:0;background:#000;color:#f3ead7;font:14px/1.5 JB,monospace;overflow:hidden}
 canvas{width:100vw;height:100vh;display:block}
 #wn{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font:600 22px JB,monospace;letter-spacing:.08em;color:#fff;opacity:0;transition:opacity .6s;pointer-events:none}
@@ -14,6 +15,17 @@ canvas{width:100vw;height:100vh;display:block}
 #sim{display:none;padding:24px;overflow:auto;height:100vh;box-sizing:border-box}
 #sim table{border-collapse:collapse;margin:8px 0 24px}#sim td,#sim th{padding:3px 14px 3px 0;text-align:left}#sim th{color:#888;font-weight:400}
 #sim h3{margin:0;font-weight:600;color:#fff}#sim .k{color:#888}
+#vsb{position:fixed;right:14px;bottom:12px;z-index:5;padding:8px 12px;border:1px solid #fff3;border-radius:10px;background:none;color:#fff;font:600 13px JB,monospace;letter-spacing:.1em;opacity:.28;cursor:pointer}
+#vsb:active{opacity:.7}
+#sec{position:fixed;inset:0;z-index:6;display:none}#sec.on{display:block}
+#sec .ark{position:absolute;inset:0}
+#sec .pan{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(720px,100%);max-height:78vh;overflow:auto;box-sizing:border-box;padding:14px 14px 18px;background:#000c;border:1px solid #fff2;border-bottom:0;border-radius:18px 18px 0 0;backdrop-filter:blur(6px)}
+#sec .ust{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;margin-bottom:10px}
+#sec .vs{font:600 15px JB,monospace;letter-spacing:.06em;color:#888}#sec .vs b{font-weight:600}
+#sec .bas{padding:9px 16px;border:0;border-radius:10px;background:#f3ead7;color:#000;font:700 13px JB,monospace;letter-spacing:.08em;cursor:pointer}#sec .bas:disabled{opacity:.2}
+#sec .izg{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px}
+#sec .kr{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border:1px solid transparent;border-radius:12px;background:none;color:#aaa;font:600 10px JB,monospace;letter-spacing:.04em;cursor:pointer}
+#sec .kr canvas{width:54px;height:54px}#sec .kr.s{border-color:var(--r);color:var(--r);background:#ffffff0d}
 </style>
 </head>
 <body>
@@ -111,7 +123,7 @@ function isle(st,a,b,kaz){for(const x of[a,b]){const r=st.k[x.ad]??={mac:0,g:0,m
 function bitir(kaz){o.bitti=true;o.kazanan=kaz;if(SIM)return;
  const st=oku();isle(st,o.T[0],o.T[1],kaz);try{localStorage.setItem(ANAH,JSON.stringify(st))}catch{}
  for(const b of o.T)if(b.hp<=0){o.parca(b.x,b.y,[b.renk,'#fff'],70,8,60,3.5);o.sars(8)}
- wn.textContent=kaz?kaz.ad+' KAZANDI':'BERABERE';wn.classList.add('on');setTimeout(yeniMac,4000)}
+ wn.textContent=kaz?kaz.ad+' KAZANDI':'BERABERE';wn.classList.add('on');o.sonraki=setTimeout(yeniMac,4000)}
 
 function fxTick(){for(const p of o.pr){p.l++;p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96}o.pr=o.pr.filter(p=>p.l<p.m);
  for(const f of o.fx)f.l++;o.fx=o.fx.filter(f=>f.l<f.m);o.sarsma*=.85;for(const d of o.duvar)d.l++;o.duvar=o.duvar.filter(d=>d.l<d.m);for(const b of o.T){b.dh+=(b.hp-b.dh)*.12;if(b.hudVur>0)b.hudVur--;if(b.ez>0&&!o.dur)b.ez--;for(const s of b.hs)s.l++;b.hs=b.hs.filter(s=>s.l<60)}}
@@ -251,6 +263,25 @@ function demoKur(){const adlar=Q.get('demo').toUpperCase().split(',').filter(Boo
 
 boyut();
 if(Q.has('denge'))dengeSayfa();else if(SIM)simSayfa();else{addEventListener('resize',boyut);yeniMac();if(Q.has('demo'))demoKur();requestAnimationFrame(dongu)}
+</script>
+<script>
+// Karakter seçimi: sağ alttaki soluk VS tuşu. Dock iframe'inde, demo ve denge sayfalarında yok
+if(!SIM&&!Q.has('demo')&&window.top===window.self){
+ const el=(t,cl,ust)=>{const e=document.createElement(t);if(cl)e.className=cl;ust?.appendChild(e);return e};
+ const vsb=el('button','',document.body);vsb.id='vsb';vsb.textContent='VS';vsb.setAttribute('aria-label','Karakter seç');
+ const sec=el('div','',document.body);sec.id='sec';el('div','ark',sec).onclick=()=>sec.classList.remove('on');
+ const pan=el('div','pan',sec),ust=el('div','ust',pan),vs=el('div','vs',ust),bas=el('button','bas',ust),izg=el('div','izg',pan);
+ bas.textContent='BAŞLAT';let sel=[];
+ const kartlar=KR.map((k,i)=>{const b=el('button','kr',izg),cn=el('canvas','',b),d=devicePixelRatio||1,x=cn.getContext('2d');
+  b.style.setProperty('--r',k.renk);el('span','',b).textContent=k.ad;cn.width=cn.height=54*d;
+  x.scale(d,d);x.translate(27,29);x.scale(.74,.74);x.lineJoin=x.lineCap='round';
+  try{(k.gorunum||varsayilanKafa)(x,savasci(k,1),{t:100},0,0)}catch(e){console.warn(k.ad,e)}  // kafa çizimi menüyü bozmasın
+  b.onclick=()=>{sel=sel.length>=2?[i]:[...sel,i];yaz()};return b});
+ const yaz=()=>{kartlar.forEach((b,i)=>b.classList.toggle('s',sel.includes(i)));
+  vs.innerHTML=sel.length?sel.map(i=>`<b style="color:${KR[i].renk}">${KR[i].ad}</b>`).join(' vs ')+(sel.length<2?' vs ?':''):'İKİ KARAKTER SEÇ';bas.disabled=sel.length<2};
+ vsb.onclick=()=>{sel=[];yaz();sec.classList.add('on')};
+ bas.onclick=()=>{const[i,j]=sel;clearTimeout(o.sonraki);do yeniMac(i,j);while(o.T[0].taraf>0);sec.classList.remove('on')};  // ilk seçilen solda
+ addEventListener('keydown',e=>{if(e.key=='Escape')sec.classList.remove('on')})}
 </script>
 </body>
 </html>
