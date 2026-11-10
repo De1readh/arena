@@ -28,7 +28,7 @@ URL anahtarları:
 | `?denge=300` | Denge raporu: her ikili N maç; genel oran, hasar/sn, skill payları ve isabet, eşleşme tablosu, "çarpan öner" |
 | `?sim=1000` / `?sim` | Ekransız N maç / kayıtlı istatistik |
 | `?ucus=1` / `?ucus=0` | Herkesi uçurur / yere indirir |
-| `?oran=1.3` | Arena oranını dener (denge 1.5'e göre yapıldı) |
+| `?oran=1.3` | Arena oranını dener (denge 1.5 ve 1.3'te ölçüldü; `?dikey=1` 1.3 kullanır) |
 
 Tarayıcı konsolunda işe yarayan parçalar (`?denge=1` sayfasında motor simülasyon kipinde yüklenir):
 
@@ -75,7 +75,7 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
   - Oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, mürekkep siluetler), siyah hız çizgileri çıkar.
   - `ters=false` sürümü sadedir: daha kısa donma, yine siyah-beyaz kare ve beyaz flaş.
   - Siyah-beyaz geçiş `ciz()` sonunda `kareSiyahBeyaz` ile yapılır (o karedeki her efekt döner, yan göstergeler renkli yeniden çizilir). `ctx.filter` kullanma: PC'de kareyi ikiye katlıyor, iOS Safari'de yok (renkli negatif kalıyordu); karışım modları (saturation, difference, color-burn) kullanılır.
-- **Dikey video düzeni (deneme):** `?dikey=1` 9:16 çerçeve, göstergeler arenanın üstünde ve altında eğik kesimli bantlarda (büyük kafa ileride karakter görseliyle değişecek), arena `oran` 1.3 (denge bu oranda ölçülmedi), VS menüsü gizli. `?dikey=2` ikisi üstte, `?dikey=3` dikey arena: kullanıcı 1'i seçti.
+- **Dikey video düzeni (deneme):** `?dikey=1` 9:16 çerçeve, göstergeler arenanın üstünde ve altında eğik kesimli bantlarda (büyük kafa ileride karakter görseliyle değişecek), arena `oran` 1.3, VS menüsü gizli. `?dikey=2` ikisi üstte, `?dikey=3` dikey arena: kullanıcı 1'i seçti.
 - **Maç sonu:** donmaz; 4 sn boyunca 100 kat ağır çekim (`YAVAS` .01, o anda durmuş gibi görünür), toplar kareler arasında kayar.
 - **Futbol topu:**
   - Arenada tek top var; yalnızca topla oynayan karakter (`top: true`: Isagi, Kaiser) varken doğar.
@@ -155,6 +155,12 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
 | YEAT | menzilli 120 | 94 / 1.05 | Rapçi. Siyah kıvırcık örgü maske (yüz açık), siyah dikdörtgen gözlük, ince bıyık, buzlu zincir ucunda elmaslı küçük çan. Palet siyah-yeşil-elmas; efektler: ses halkaları, glitch, elmas, ad-lib yazıları (`yeatYazi`). **Ritim:** 150 BPM (`YEAT_BEAT` 24 tick); skiller hemen başlar, vuruş bir sonraki beat'e iner (`yeatBeat`) · **Rage** (pasif: vurdukça/vuruldukça dolar; 4 sn hız ×1.2, hasar ×1.2, yakın vuruştan %35 az hasar) · Çan (zincirli çan savurur, DONG) · 808 (altında hoparlör, şok dalgası duvara fırlatır, duvara çarparsa ek hasar) · Glitch (uzaktakinin arkasına ışınlanır, 4 hasar) · Tonka (Yeat'in dev lüks kamyoneti: rakibin hizasında şerit, 0.23 sn kilit, beat'te dev siyah kamyonet arenayı boydan boya geçip çarpar; `yeatTonka`) · Afterlyfe (ulti: arena kararır, yeşil lazerler, arkada dev elmaslı çan 4 beat çalar; `yeatCan`) |
 
 ## Denge durumu (2026-11-10, ikili başına 300 maç)
+
+- **Dikey arena (1.3) dengesi:** Sukuna Kesme 140→136 menzil, bekleme 46→52 · Naoya 24 Kare: menzilli/alan ≥5 darbe hızı ×.75 siler (yakın ×.4 kaldı) · Peely SCAR bekleme 120→112 · Makima kontrol alanı yavaşlatması .93/.95→.965/.975 · Yeat Çan bekleme 80→86.
+  - 1.3'te genel %46–56 (Maki 56), kırmızı 16→10–14 (300 maçta ±6 oynar; 66–68'ler sınırda). 1.5'te genel %46–56, kırmızı 15→11.
+  - Kalan kalıcı kırmızılar: Maki–Makima ~%89, Sukuna–Kaiser ~%75, Sukuna–Makima ~%74 (aşağıdaki tabloda, Sukuna'ya özel karşı mekanik bekliyor), Yeat–Toji ~%70, Makima–Gojo ~%68.
+
+Aşağısı 1.5'teki eski notlar:
 
 - **Genel:** Herkes %44–55 aralığında (ikili başına 200 maç, Kaiser sonrası). Kaiser %51 (ikili başına 300 maç, `cift`).
 - **Açık eşleşmeler** (sınırın hemen dışında; kullanıcıya çözüm önerisi sunulmadı):

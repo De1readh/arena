@@ -1290,7 +1290,7 @@ const KARAKTERLER = [
       if (b.hp < b.mx * .35) { c.strokeStyle = '#c4002a'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(6 + fx, 15 + fy); c.lineTo(7 + fx, 20 + fy); c.stroke(); } // ağız kenarından kan
     },
     skiller: [
-      { ad: 'Kesme', isabet: 'guvenilir', bekleme: 46, ilk: 30, kosul: (b, e) => uzak(b, e) < 140, // görünmez kesik
+      { ad: 'Kesme', isabet: 'guvenilir', bekleme: 52, ilk: 30, kosul: (b, e) => uzak(b, e) < 136, // görünmez kesik
         kullan(b, e, o) {
           sukunaUyum(b, 4.5, o.vur(e, 4.5, b, 3, 'yakin'));
           if (duvarda(e, o, 70)) o.duvarVur(e.x, e.y, '#ff8090', .9);
@@ -1876,7 +1876,7 @@ const KARAKTERLER = [
           if (!o.sim && o.t % 4 == 0) { (h.kare ??= []).push([b.x, b.y, o.t]); if (h.kare.length > 5) h.kare.shift(); } },
         hasarAl(b, d, { kaynak, tur }, o) { const h = b.hafiza; // hızlandıkça yakın vuruşların arasından kare atlayarak sıyrılır (menzilli/alan sıyrılamaz; kesin vuruşta şans azalır: Maki onu görür)
           if (tur == 'yakin' && Math.random() < .5 * (h.iv || 0) * (kaynak?.kesin ? .7 : 1)) { if (!o.sim) o.ekle({ x: b.x, y: b.y, omur: 14, ciz(c, m) { filmKare(c, m.x, m.y, 54, 54, 0, .8 * (1 - m.l / 14)); } }); return 0; }
-          if (d >= 5) h.iv = (h.iv || 0) * .4; return d; },
+          if (d >= 5) h.iv = (h.iv || 0) * (tur == 'yakin' ? .4 : .75); return d; }, // uzaktan büyük darbe hızını daha az siler (menzillilere karşı çok eziliyordu)
         ciz(c, b, o) { const v = Math.hypot(b.vx, b.vy); if (v < 3.5 || !b.hafiza.kare) return; const al = Math.min(1, (v - 3.5) / 4);
           for (const [x, y, t] of b.hafiza.kare) { const u = (o.t - t) / 20; if (u > 1 || u < .1) continue;
             c.globalAlpha = .3 * (1 - u) * al; c.fillStyle = '#2a2a30'; c.beginPath(); c.arc(x, y, b.r, 0, TAU_); c.fill(); c.globalAlpha = 1;
@@ -2114,7 +2114,7 @@ const KARAKTERLER = [
               silahCiz(c, 'kazma', s.x + Math.cos(aa) * (s.r + 2), s.y + Math.sin(aa) * (s.r + 2), aa); } });
         } },
 
-      { ad: 'SCAR', isabet: 'guvenilir', bekleme: 120, ilk: 50, kosul: (b, e) => { const d = uzak(b, e); return d > 90 && d < 400; }, // altın SCAR: dört mermilik seri, hafif saçılma; seriden en az biri neredeyse hep tutar, temel silah
+      { ad: 'SCAR', isabet: 'guvenilir', bekleme: 112, ilk: 50, kosul: (b, e) => { const d = uzak(b, e); return d > 90 && d < 400; }, // altın SCAR: dört mermilik seri, hafif saçılma; seriden en az biri neredeyse hep tutar, temel silah
         kullan(b, e, o) { b.hafiza.silah = 'scar'; b.hafiza.silahT = o.t + 60;
           o.ekle({ sahip: b, x: 0, y: 0, omur: 20,
             adim(m, o) { const s = m.sahip, e = o.rakip(s); if (m.l % 5 != 1 || s.don > 0 || s.hp <= 0) return;
@@ -2422,7 +2422,7 @@ const KARAKTERLER = [
     skiller: [
       { ad: 'Sözleşme', // pasif: ölümcül hasar sözleşmeyle bir "vatandaşa" aktarılır: maçta bir kez düşmek yerine %25 canla kalkar. yoksay deler (Toji'nin mızrağı sözleşmeyi tanımaz).
         // Kontrol alanı: 120 px içine giren rakip ağırlaşır (yakın dövüşçüye karşı; menzilliler zaten uzakta durur)
-        pasif(b, e, o) { const d = uzak(b, e); b.hafiza.alan = d < 120; if (b.hafiza.alan && e.don <= 0) { e.vx *= .93; e.vy *= .95; } },
+        pasif(b, e, o) { const d = uzak(b, e); b.hafiza.alan = d < 120; if (b.hafiza.alan && e.don <= 0) { e.vx *= .965; e.vy *= .975; } },
         ciz(c, b, o) { if (b.hafiza.alan) halkalar(c, b.x, b.y, 120, .14 + .04 * Math.sin(o.t * .15)); },
         hasarAl(b, d, bilgi, o) { const h = b.hafiza; if (h.soz || d * 1.5 < b.hp) return d;
           const once = b.hp; h.soz = o.t; b.hp = Math.max(b.hp, b.mx * .25); b.don = 0;
@@ -2549,7 +2549,7 @@ const KARAKTERLER = [
           else if (h.rage > 0) { c.save(); c.strokeStyle = '#39e87a'; c.globalAlpha = .55; c.lineWidth = 2; c.lineCap = 'round'; const k = h.rage / 100 * Math.PI * .45; // Rage göstergesi: topun altında dolan yay
             c.beginPath(); c.arc(b.x, b.y, b.r + 7, Math.PI / 2 - k, Math.PI / 2 + k); c.stroke(); c.restore(); } } },
 
-      { ad: 'Çan', isabet: 'guvenilir', bekleme: 80, ilk: 40, kosul: (b, e) => uzak(b, e) < b.r + e.r + 110 && !e.dokunulmaz, // zincirli çanı savurur, beat'te rakibe iner: DONG
+      { ad: 'Çan', isabet: 'guvenilir', bekleme: 86, ilk: 40, kosul: (b, e) => uzak(b, e) < b.r + e.r + 110 && !e.dokunulmaz, // zincirli çanı savurur, beat'te rakibe iner: DONG
         kullan(b, e, o) { const vL = yeatBeat(o, 9);
           o.ekle({ sahip: b, hedef: e, x: b.x, y: b.y, omur: vL + 16, vL, z: Math.random() < .5 ? -1 : 1, a: yonu(b, e), iz: [],
             adim(m, o) { const s = m.sahip, e = m.hedef; if (s.hp <= 0) { m.olu = 1; return; }
