@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arena</title>
+<style>
+@font-face{font-family:JB;src:url(/fonts/jetbrainsmono-latin.woff2) format('woff2');font-weight:100 800}
+html,body{margin:0;background:#000;color:#f3ead7;font:14px/1.5 JB,monospace;overflow:hidden}
+canvas{width:100vw;height:100vh;display:block}
+#wn{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font:600 22px JB,monospace;letter-spacing:.08em;color:#fff;opacity:0;transition:opacity .6s;pointer-events:none}
+#dm{position:fixed;left:0;right:0;bottom:4%;text-align:center;font:600 15px JB,monospace;letter-spacing:.06em;color:#ddd;pointer-events:none;white-space:pre-line;line-height:1.6}#dm small{font-weight:400;color:#888;font-size:12px}
+#wn.on{opacity:.55}
+#sim{display:none;padding:24px;overflow:auto;height:100vh;box-sizing:border-box}
+#sim table{border-collapse:collapse;margin:8px 0 24px}#sim td,#sim th{padding:3px 14px 3px 0;text-align:left}#sim th{color:#888;font-weight:400}
+#sim h3{margin:0;font-weight:600;color:#fff}#sim .k{color:#888}
+</style>
+</head>
+<body>
+<canvas></canvas><div id="wn"></div><div id="dm"></div><div id="sim"></div>
+<script src="karakterler.js"></script>
+<script>
+// Adres anahtarları: ?sim=1000 ekransız 1000 maç | ?sim kayıtlı istatistik | ?ucus=1 / ?ucus=0 herkesi uçur / yere indir
+const Q=new URLSearchParams(location.search),SIM=Q.has('sim')||Q.has('denge'),N=+Q.get('sim')||0,UCUS=Q.get('ucus');
+const H=440,GR=.1,RS=.9,KRIT=.1,KRITX=1.5,TS=1000/60,MAKS=60*90,X0=6,Y0=6,TAU=Math.PI*2;
+let GUC={};  // denge aracının denediği geçici hasar çarpanları {AD: x}
+const KR=KARAKTERLER.map(k=>UCUS==null?k:{...k,ucar:UCUS=='1'});
+const cv=document.querySelector('canvas'),c=cv.getContext('2d'),wn=document.getElementById('wn');
+// arena sabit oranlı dikdörtgen, ekranın ortasında; ?oran=1.3 ile denenebilir
+const ORAN=+Q.get('oran')||1.5,W=Math.round(H*ORAN);let SC=1,OX=0,OY=0;
+// KEN: yan göstergelere ayrılan en az boşluk; dar ekranda arena küçülür, gösterge hiçbir zaman arenaya girmez
+const KEN=95;
+function boyut(){const d=devicePixelRatio||1;cv.width=innerWidth*d;cv.height=innerHeight*d;SC=Math.min(cv.height/H,cv.width/(W+2*KEN))*.96;
+ OX=(cv.width/SC-W)/2;OY=(cv.height/SC-H)/2}
+
+// ---- oyun durumu ve karakter dosyasının kullandığı yardımcılar
+const o={H,W,sim:SIM,t:0,T:[],nes:[],pr:[],fx:[],duvar:[],sarsma:0,dur:0,bitti:true,
+ // duvara çarpma izi: noktayı en yakın kenara yapıştırır; guc ~0.5 hafif, 1 orta, 3 duvar çatlar
+ duvarVur(x,y,renk,guc=1){if(SIM)return;const ds=[x-X0,W-6-x,y-Y0,H-6-y],k=ds.indexOf(Math.min(...ds));
+  if(k<2)x=k?W-6:X0;else y=k==2?Y0:H-6;if(o.duvar.length>40)o.duvar.shift();
+  o.duvar.push({x,y,k,renk,guc,l:0,m:guc>=2?120:40,cat:guc>=2?Array.from({length:3+guc*2|0},()=>[Math.random()*2-1,.3+Math.random()*.7]):null})},
+ rakip:b=>o.T[0]===b?o.T[1]:o.T[0],
+ ekle(n){n.l=0;n.sk??=o.sk;n.kul??=o.kul;n.vx??=0;n.vy??=0;o.nes.push(n);return n},
+ // tur: 'yakin' | 'menzil' | 'alan' (karakterin hasarAl kancası türe göre karar verir)
+ vur(h,d,k,kb=0,tur='menzil'){if(o.bitti||h.hp<=0)return 0;if(h.dokunulmaz){h.dokunulmaz(o.sk,o);return 0}  // dokunulmaz(skill, o): hiç hasar almaz (Mahoraga), kanca vuran skilli görür
+ const sv=o.rakip(h);d*=GUC[sv.ad]??sv.k.guc??1;  // guc: karakterin hasar çarpanı (denge ince ayarı)
+  if(!k?.yoksay)for(const s of h.k.skiller)if(s.hasarAl)d=s.hasarAl(h,d,{kaynak:k,tur},o);  // yoksay: savunma kancalarını deler (Toji'nin mızrağı)
+  if(d<=0)return 0;const kr=Math.random()<KRIT;if(kr)d*=KRITX;
+  h.hp-=d;o.olc?.(sv.ad,o.sk||'?',d);h.f=kr?9:5;h.hudVur=kr?16:10;
+  const dx=k?h.x-k.x:0,dy=k?h.y-k.y:0,l=Math.hypot(dx,dy)||1;
+  if(kb&&k){const m=kb*(kr?1.6:1)*(1-(h.k.itDirenc||0));h.vx+=dx/l*m;h.vy+=dy/l*m-m*.15}
+  if(!SIM){const a=l>1?Math.atan2(dy,dx):Math.random()*TAU,hs=kr?7:d>=10?5:d>=4?3:0;
+   o.dur=Math.max(o.dur,hs);if(kr)o.sars(4);  // hitstop: büyük vuruşta oyun birkaç kare donar
+   h.ez=h.ezm=kr?16:d>=4?12:7;h.eza=a;h.ezq=kr?.3:d>=4?.2:.1;  // vurulan kafa darbe yönünde ezilip yaylanır, yüz acıyla buruşur
+   const px=h.x-Math.cos(a)*h.r,py=h.y-Math.sin(a)*h.r,renk=k?.renk||o.rakip(h).renk;
+   if(k?.vurFx)k.vurFx(px,py,a,kr);  // kaynak kendi darbe efektini getirebilir (kan, buz...); yoksa standart neon kıvılcım
+   else if(d>=2||kr){if(o.fx.length>=24)o.fx.shift();
+    o.fx.push({x:px,y:py,a,renk,kr,l:0,m:kr?18:13,isin:Array.from({length:kr?9:6},(_,i)=>[a+Math.PI+(Math.random()-.5)*2.2,.5+Math.random()*.5])})}
+   if(!k?.vurFx)o.parca(px,py,[renk,'#fff'],kr?10:4,kr?5:3,16,1.8)}
+  o.sayi(h,d,kr?1:0);return d},
+ // yan göstergede canın altında kısa "-12"; art arda gelen küçük vuruşlar tek sayıda birikir. k: 0 normal, 1 kritik, 2 iyileşme
+ sayi(h,d,k=0){if(SIM)return;const s=h.hs.at(-1),iy=k==2;
+  if(s&&s.l<24&&s.iy==iy){s.d+=d;s.l=0;s.kr||=k==1}else{h.hs.push({d,iy,kr:k==1,l:0});if(h.hs.length>3)h.hs.shift()}},
+ tane(p){if(SIM||o.pr.length>=500)return;p.l=0;p.m??=30;p.s??=2.5;p.vx??=0;p.vy??=0;o.pr.push(p)},
+ parca(x,y,renk,n=10,hiz=3,omur=30,boy=2.5){if(SIM)return;for(let i=0;i<n;i++){const a=Math.random()*TAU,v=hiz*(.3+Math.random()*.7);
+  o.tane({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,m:omur*(.6+Math.random()*.6),s:boy*(.6+Math.random()*.8),renk:Array.isArray(renk)?renk[Math.random()*renk.length|0]:renk})}},
+ sars(n){o.sarsma=Math.max(o.sarsma,n)},
+ isik(c,x,y,r,renk,al=1){if(r<=0||al<=0)return;c.save();c.globalCompositeOperation='lighter';c.globalAlpha=Math.min(1,al);
+  const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,renk);g.addColorStop(1,'transparent');c.fillStyle=g;c.beginPath();c.arc(x,y,r,0,TAU);c.fill();c.restore()}};
+
+const savasci=(k,taraf)=>({k,taraf,hudVur:0,hs:[],ez:0,ezm:1,eza:0,ezq:0,ad:k.ad,renk:k.renk,r:k.r||24,mx:k.can,hp:k.can,dh:k.can,f:0,don:0,iz:[],hafiza:{},
+ x:taraf<0?W*.25:W*.75,y:H*(.3+Math.random()*.4),vx:-taraf*(1.5+Math.random()*2.5),vy:(Math.random()-.5)*5,
+ bek:k.skiller.map(s=>s.ilk??60+Math.random()*60)});
+
+function yeniMac(i=Math.random()*KR.length|0,j=KR.length>1?(i+1+(Math.random()*(KR.length-1)|0))%KR.length:i){o.duvar=[];o.fx=[];o.dur=0;const s=Math.random()<.5?1:-1;
+ o.T=[savasci(KR[i],-s),savasci(KR[j],s)];o.t=0;o.nes=[];o.bitti=false;o.kazanan=undefined;wn.classList.remove('on')}
+
+const sek=b=>{const v=Math.hypot(b.vx,b.vy);if(v>5.5)o.duvarVur(b.x,b.y,b.renk,Math.min(1,v/12))};
+function tick(){o.t++;o.demoAdim?.();const X1=W-6,Y1=H-6;
+ for(const b of o.T){const e=o.rakip(b),k=b.k;b.iz.push([b.x,b.y]);if(b.iz.length>10)b.iz.shift();if(b.f>0)b.f--;
+  if(b.don>0){b.don-=1+(k.donDirenc||0);continue}  // donDirenc 1: dondurma yarı sürede çözülür
+  const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy)||1;
+  // yakın dövüşçü hep yaklaşır; menzilli kendi menzil bandında kalır
+  let yon=1;if((b.tip||k.tip)=='menzilli'){const m=k.menzil||300;yon=d<m*.75?-1:d>m*1.15?1:0}
+  const iv=(yon<0?.07:.05)*(k.hiz||1)*(b.hizx||1);b.vx+=dx/d*iv*yon;b.vy+=dy/d*iv*yon+(k.ucar?0:GR);
+  b.vx*=.9985;b.vy*=.9985;
+  let sp=Math.hypot(b.vx,b.vy);const cap=10*(k.hiz||1)*(b.hizx||1);if(sp>cap){b.vx*=cap/sp;b.vy*=cap/sp;sp=cap}
+  if(k.ucar&&sp<3){if(sp<.01){const a=Math.random()*TAU;b.vx=Math.cos(a);b.vy=Math.sin(a);sp=1}b.vx*=3/sp;b.vy*=3/sp}  // uçan top durmaz, bilardo topu gibi süzülür
+  b.x+=b.vx;b.y+=b.vy;
+  if(b.x<X0+b.r){b.x=X0+b.r;b.vx=Math.abs(b.vx)*RS;sek(b);b.vy+=(Math.random()-.5)*.8}
+  if(b.x>X1-b.r){b.x=X1-b.r;b.vx=-Math.abs(b.vx)*RS;sek(b);b.vy+=(Math.random()-.5)*.8}
+  if(b.y<Y0+b.r){b.y=Y0+b.r;b.vy=Math.abs(b.vy)*RS;sek(b)}
+  if(b.y>Y1-b.r){b.y=Y1-b.r;sek(b);if(k.ucar)b.vy=-Math.abs(b.vy)*RS;else{b.vy=-Math.max(Math.abs(b.vy)*RS,3+Math.random()*2.5);b.vx+=(Math.random()-.5)*1.2}}}
+ {const[p,q]=o.T,d=Math.hypot(q.x-p.x,q.y-p.y)||1,rr=p.r+q.r;
+  if(d<rr){const nx=(q.x-p.x)/d,ny=(q.y-p.y)/d,ov=(rr-d)/2;p.x-=nx*ov;p.y-=ny*ov;q.x+=nx*ov;q.y+=ny*ov;
+   const rv=(q.vx-p.vx)*nx+(q.vy-p.vy)*ny;if(rv<0){const j=-1.92*rv/2;p.vx-=j*nx;p.vy-=j*ny;q.vx+=j*nx;q.vy+=j*ny}}}
+ for(const b of o.T){if(b.don>0||b.hp<=0)continue;const e=o.rakip(b);
+  b.k.skiller.forEach((s,i)=>{o.sk=s.ad;o.kul=null;if(s.pasif)s.pasif(b,e,o);if(!s.kullan)return;if(b.bek[i]>0){b.bek[i]--;return}
+   if(s.kosul&&!s.kosul(b,e,o))return;o.kul=o.kn=(o.kn|0)+1;if(s.kullan(b,e,o)===false)return;o.olcK?.(b.ad,s.ad);b.bek[i]=s.tek?Infinity:s.bekleme*(.85+Math.random()*.3)})}
+ for(const n of o.nes){n.l++;n.x+=n.vx;n.y+=n.vy;o.sk=n.sk;o.kul=n.kul;if(n.adim)n.adim(n,o)}o.sk=o.kul=null;
+ o.nes=o.nes.filter(n=>!n.olu&&n.l<n.omur);
+ const[a,b]=o.T,ao=a.hp<=0,bo=b.hp<=0;
+ if(ao||bo||o.t>=MAKS)bitir(ao&&bo?null:ao?b:bo?a:a.hp/a.mx>=b.hp/b.mx?a:b)}  // süre dolarsa canı oranca fazla olan kazanır
+
+// ---- istatistik: {k:{AD:{mac,g,m}}, vs:{'A>B':n}, b:berabere}
+const ANAH='arena-istat',bos=()=>({k:{},vs:{},b:0});
+function oku(){try{return JSON.parse(localStorage.getItem(ANAH))||bos()}catch{return bos()}}
+function isle(st,a,b,kaz){for(const x of[a,b]){const r=st.k[x.ad]??={mac:0,g:0,m:0};r.mac++;if(kaz)x===kaz?r.g++:r.m++}
+ if(kaz){const ky=(kaz===a?b:a).ad+'',key=kaz.ad+'>'+ky;st.vs[key]=(st.vs[key]||0)+1}else st.b++}
+
+function bitir(kaz){o.bitti=true;o.kazanan=kaz;if(SIM)return;
+ const st=oku();isle(st,o.T[0],o.T[1],kaz);try{localStorage.setItem(ANAH,JSON.stringify(st))}catch{}
+ for(const b of o.T)if(b.hp<=0){o.parca(b.x,b.y,[b.renk,'#fff'],70,8,60,3.5);o.sars(8)}
+ wn.textContent=kaz?kaz.ad+' KAZANDI':'BERABERE';wn.classList.add('on');setTimeout(yeniMac,4000)}
+
+function fxTick(){for(const p of o.pr){p.l++;p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96}o.pr=o.pr.filter(p=>p.l<p.m);
+ for(const f of o.fx)f.l++;o.fx=o.fx.filter(f=>f.l<f.m);o.sarsma*=.85;for(const d of o.duvar)d.l++;o.duvar=o.duvar.filter(d=>d.l<d.m);for(const b of o.T){b.dh+=(b.hp-b.dh)*.12;if(b.hudVur>0)b.hudVur--;if(b.ez>0&&!o.dur)b.ez--;for(const s of b.hs)s.l++;b.hs=b.hs.filter(s=>s.l<60)}}
+
+// ---- çizim
+const eo=(x,n)=>1-Math.pow(1-Math.min(1,Math.max(0,x)),n);
+
+function kafaCiz(b,x,y,r,don,bx,by){c.save();c.translate(x,y);c.rotate(don);c.scale(r/24,r/24);c.lineJoin=c.lineCap='round';
+ (b.k.gorunum||varsayilanKafa)(c,b,o,bx,by);c.restore()}
+function canHalka(b,x,y,R,lw){c.save();c.lineCap='round';c.lineWidth=lw;c.strokeStyle=b.renk;c.globalAlpha=.16;c.beginPath();c.arc(x,y,R,0,TAU);c.stroke();
+ c.globalAlpha=1;c.beginPath();c.arc(x,y,R,-Math.PI/2,-Math.PI/2+TAU*Math.max(0,b.dh/b.mx));c.stroke();c.restore()}
+// arenanın iki yanındaki boşlukta Smash tarzı gösterge: portre, isim, kalan can, son hasar (boşluk KEN ile hep ayrılır)
+function hudCiz(){const bos=Math.min(OX,150);
+ for(const b of o.T){const sag=b.taraf>0,cx=sag?W+bos/2:-bos/2,cy=H/2,s=Math.min(1.1,bos/110),v=b.hudVur;
+  c.save();c.translate(cx+(v>0?(Math.random()-.5)*v*.5:0),cy);c.scale(s,s);c.globalAlpha=b.hp>0?1:.35;
+  o.isik(c,0,-30,60,b.renk,.3);canHalka(b,0,-30,36,3);kafaCiz(b,0,-30,31,0,sag?-1:1,0);
+  if(v>0){c.globalAlpha=v/16*.6;c.fillStyle='#fff';c.beginPath();c.arc(0,-30,31,0,TAU);c.fill();c.globalAlpha=b.hp>0?1:.35}
+  c.textAlign='center';c.textBaseline='middle';c.font='600 12px JB,monospace';c.fillStyle=b.renk;c.fillText(b.etiket||b.ad,0,20);
+  const hv=Math.max(0,Math.ceil(b.dh)),dus=b.hp<b.mx*.35,z=1+(v>0?v/16*.25:0);
+  c.font='600 '+Math.round(36*z)+'px JB,monospace';c.lineJoin='round';c.lineWidth=5;c.strokeStyle='#000';c.strokeText(hv,0,52);
+  c.fillStyle=v>0?b.renk:dus?(o.t%40<20?'#ff5a6a':'#f3ead7'):'#f3ead7';c.fillText(hv,0,52);
+  b.hs.forEach((h,i)=>{const u=h.l/60,y=82+eo(u,3)*8+(b.hs.length-1-i)*17;  // en yeni üstte, eskiler alta kayarc.globalAlpha=(u>.6?1-(u-.6)/.4:1)*(b.hp>0?1:.35);
+   c.font='600 '+(h.kr?17:14)+'px JB,monospace';c.lineWidth=4;const t=(h.iy?'+':'−')+Math.max(1,Math.round(h.d))+(h.kr?'!':'');
+   c.strokeText(t,0,y);c.fillStyle=h.iy?'#7be05a':h.kr?o.rakip(b).renk:'#f3ead7';c.fillText(t,0,y)});
+  c.restore()}}
+// darbe kıvılcımı: darbe noktasında vuranın renginde halka ve geriye saçılan ışınlar
+function kivilcimCiz(f){const u=f.l/f.m,al=1-u;c.save();c.globalCompositeOperation='lighter';c.lineCap='round';
+ o.isik(c,f.x,f.y,(f.kr?40:26)*(1-u*.5),f.renk,al*.9);
+ c.globalAlpha=al;c.strokeStyle=f.renk;c.lineWidth=(f.kr?3:2)*al+.5;c.beginPath();c.arc(f.x,f.y,4+(f.kr?30:18)*eo(u,2),0,TAU);c.stroke();
+ c.strokeStyle='#fff';for(const[a,b]of f.isin){const r0=4+20*eo(u,2)*b,r1=r0+(f.kr?20:12)*b*(1-u);c.lineWidth=(f.kr?2.4:1.6)*al+.3;
+  c.beginPath();c.moveTo(f.x+Math.cos(a)*r0,f.y+Math.sin(a)*r0);c.lineTo(f.x+Math.cos(a)*r1,f.y+Math.sin(a)*r1);c.stroke()}
+ c.restore()}
+function topCiz(b){c.save();c.globalCompositeOperation='lighter';c.fillStyle=b.renk;
+ b.iz.forEach(([x,y],i)=>{const f=i/b.iz.length;c.globalAlpha=f*.16;c.beginPath();c.arc(x,y,b.r*(.4+.6*f),0,TAU);c.fill()});c.restore();
+ o.isik(c,b.x,b.y,b.r*2.6,b.renk,.35);
+ // can = kafayı saran neon çerçeve, tepeden saat yönünde eksilir
+ canHalka(b,b.x,b.y,b.r+3,3);
+ c.save();if(b.ez>0){const u=1-b.ez/b.ezm,q=b.ezq*(1-u)*Math.cos(u*Math.PI*2.5);  // ezilme: darbe ekseninde basılır, sönen yayla geri gelir
+  c.translate(b.x,b.y);c.rotate(b.eza);c.scale(1-q,1+q*.6);c.rotate(-b.eza);c.translate(-b.x,-b.y)}
+ {const e=o.rakip(b),a=Math.atan2(e.y-b.y,e.x-b.x);kafaCiz(b,b.x,b.y,b.r,Math.max(-.25,Math.min(.25,b.vx*.03)),Math.cos(a),Math.sin(a))}
+ if(b.f>0){c.globalAlpha=Math.min(1,b.f/6)*.7;c.fillStyle='#fff';c.beginPath();c.arc(b.x,b.y,b.r,0,TAU);c.fill();c.globalAlpha=1}
+ c.restore();
+ for(const s of b.k.skiller)if(s.ciz)s.ciz(c,b,o);
+ if(b.don>0){c.save();c.strokeStyle='#e8f6ff';c.globalAlpha=.45+.3*Math.sin(o.t*.5);c.lineWidth=2;c.setLineDash([3,5]);c.beginPath();c.arc(b.x,b.y,b.r+6,0,TAU);c.stroke();c.restore()}}
+
+function duvarCiz(){c.save();c.beginPath();c.rect(X0-3,Y0-3,W-6,H-6);c.clip();c.globalCompositeOperation='lighter';c.lineCap='round';
+ for(const d of o.duvar){const u=d.l/d.m,al=(1-u)*(1-u),L=(18+50*d.guc)*(.4+.6*Math.min(1,d.l/8)),yat=d.k>1;
+  o.isik(c,d.x,d.y,20+18*d.guc,d.renk,.6*al);c.globalAlpha=al;c.strokeStyle=d.renk;c.lineWidth=1+2*d.guc*(1-u);c.beginPath();
+  if(yat){c.moveTo(Math.max(X0,d.x-L),d.y);c.lineTo(Math.min(W-6,d.x+L),d.y)}else{c.moveTo(d.x,Math.max(Y0,d.y-L));c.lineTo(d.x,Math.min(H-6,d.y+L))}c.stroke();
+  if(d.cat){const ix=d.k==0?1:d.k==1?-1:0,iy=d.k==2?1:d.k==3?-1:0;c.strokeStyle='#fff';c.lineWidth=1;c.globalAlpha=al*.8;  // çatlaklar duvardan içeri uzanır
+   for(const[s,b]of d.cat){const yx=yat?s*L*.6:0,yy=yat?0:s*L*.6,ln=12+28*b*d.guc;c.beginPath();c.moveTo(d.x+yx*.3,d.y+yy*.3);c.lineTo(d.x+yx*.6+ix*ln*.5+(yat?s*6:0),d.y+yy*.6+iy*ln*.5+(yat?0:s*6));c.lineTo(d.x+yx+ix*ln,d.y+yy+iy*ln);c.stroke()}}}
+ c.restore()}
+function ciz(){c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);c.setTransform(SC,0,0,SC,OX*SC,OY*SC);
+ hudCiz();
+ const s=o.sarsma>.3?o.sarsma:0;c.translate((Math.random()-.5)*s,(Math.random()-.5)*s);
+ c.strokeStyle='#ffffff1c';c.lineWidth=2;c.strokeRect(X0,Y0,W-12,H-12);
+ c.save();c.beginPath();c.rect(X0,Y0,W-12,H-12);c.clip();for(const n of o.nes)if(n.alt&&n.ciz)n.ciz(c,n,o);c.restore();duvarCiz();
+ for(const b of o.T)if(b.hp>0)topCiz(b);
+ for(const n of o.nes)if(!n.alt&&n.ciz)n.ciz(c,n,o);
+ c.save();c.globalCompositeOperation='lighter';
+ for(const p of o.pr){c.globalAlpha=1-p.l/p.m;c.fillStyle=p.renk;c.beginPath();c.arc(p.x,p.y,p.s*(1-p.l/p.m*.5),0,TAU);c.fill()}c.restore();
+ for(const f of o.fx)kivilcimCiz(f)}
+
+let acc=0,last=0;
+function dongu(t){const dt=Math.min(100,t-(last||t));last=t;acc+=dt;let n=0;
+ while(acc>=TS-1e-6&&n<8){if(o.dur>0)o.dur--;else if(!o.bitti)tick();fxTick();acc-=TS;n++}if(acc>TS)acc=0;  // shortcut: ara kare yumuşatma yok, 60 Hz ekranda fark etmez; 120+ Hz ekranda takılırsa eklenir
+ ciz();requestAnimationFrame(dongu)}
+
+// ---- ekransız simülasyon ve istatistik sayfası
+function tablo(st,baslik){const ad=Object.keys(st.k).sort();let h='<h3>'+baslik+'</h3><table><tr><th>karakter</th><th>maç</th><th>G</th><th>M</th><th>oran</th></tr>';
+ for(const a of ad){const r=st.k[a];h+='<tr><td>'+a+'</td><td>'+r.mac+'</td><td>'+r.g+'</td><td>'+r.m+'</td><td>'+(r.mac?(100*r.g/r.mac).toFixed(1):0)+'%</td></tr>'}
+ h+='</table><table><tr><th>kim kime</th><th>G</th><th>oran</th></tr>';
+ for(const a of ad)for(const b of ad){if(a==b)continue;const g=st.vs[a+'>'+b]||0,t=g+(st.vs[b+'>'+a]||0);if(t)h+='<tr><td>'+a+' → '+b+'</td><td>'+g+'</td><td>'+(100*g/t).toFixed(1)+'%</td></tr>'}
+ return h+'</table><div class="k">berabere: '+st.b+'</div><br>'}
+function simSayfa(){cv.style.display='none';const el=document.getElementById('sim');el.style.display='block';
+ const kayit=tablo(oku(),'Bu tarayıcıda oynanan maçlar'),uc='arena '+W+'×'+H+' · uçuş: '+(UCUS==null?'karakter ayarı':UCUS=='1'?'herkes uçuyor':'kimse uçmuyor');
+ if(!N){el.innerHTML=kayit+'<div class="k">simülasyon için adres: ?sim=1000</div>';return}
+ const st=bos();let i=0,sure=0,zaman=0;const t0=performance.now();
+ const adim=()=>{const s=performance.now();while(i<N&&performance.now()-s<40){yeniMac();while(!o.bitti)tick();isle(st,o.T[0],o.T[1],o.kazanan);sure+=o.t;if(o.t>=MAKS)zaman++;i++}
+  el.innerHTML=tablo(st,'Simülasyon: '+i+' / '+N+' maç')+'<div class="k">'+uc+' · ortalama maç: '+(sure/i/60).toFixed(1)+' sn · süre dolan: '+zaman+' · '+((performance.now()-t0)/1000).toFixed(1)+' sn</div><br><br>'+kayit;
+  if(i<N)setTimeout(adim,0)};adim()}
+
+// ---- denge aracı: ?denge her ikiliyi 400 maç oynatır (?denge=1000 daha kesin). Standartlar karakterler.js'teki DENGE'de.
+// Her karakter: genel kazanma oranı, eşleşme tablosu, etkili hasar/sn, maç süresi, skill başına hasar payı; "çarpan öner" ince ayar bulur.
+function dengeKos(K,ilerle){return new Promise(bitti=>{
+ const n=KR.length,ik=[];for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)ik.push([i,j]);
+ const vs={},kr=Object.fromEntries(KR.map(k=>[k.ad,{mac:0,g:0,h:0,sure:0,sk:{}}]));let p=0,m=0;
+ const sk=(ad,s)=>kr[ad].sk[s]??={h:0,v:0,k:0,i:0},tut=new Set;  // skill başına hasar, vuruş, kullanım ve en az bir kez isabet eden kullanım (o.kul = kullanım no)
+ o.olc=(ad,s,d)=>{kr[ad].h+=d;const x=sk(ad,s);x.h+=d;x.v++;if(o.kul&&!tut.has(o.kul)){tut.add(o.kul);x.i++}};o.olcK=(ad,s)=>sk(ad,s).k++;
+ const adim=()=>{const s=performance.now();
+  while(p<ik.length&&performance.now()-s<40){const[i,j]=ik[p];yeniMac(i,j);while(!o.bitti)tick();
+   for(const b of o.T){const r=kr[b.ad];r.mac++;r.sure+=o.t;if(o.kazanan===b)r.g++}
+   if(o.kazanan){const ky=o.kazanan.ad+'>'+o.rakip(o.kazanan).ad;vs[ky]=(vs[ky]||0)+1}
+   if(++m>=K){m=0;p++}}
+  ilerle?.(p/ik.length);if(p<ik.length)setTimeout(adim,0);else{o.olc=o.olcK=null;bitti({vs,kr,K})}};adim()})}
+function dengeSayfa(){cv.style.display='none';const el=document.getElementById('sim');el.style.display='block';
+ const K=+Q.get('denge')||400,D=typeof DENGE=='object'?DENGE:{},ara=(x,[a,b])=>x>=a&&x<=b,
+  renk=(x,iyi,uyari)=>ara(x,iyi)?'#7be05a':uyari&&ara(x,uyari)?'#ffd23f':'#ff4d5a',yz=x=>(100*x).toFixed(0)+'%',isb=(a,s,x)=>{if(!x.h)return'<span class="k">destek</span>';const y=KR.find(k=>k.ad==a).skiller.find(y=>y.ad==s),c=y?.isabet||(y?.tek?'ulti':'normal'),[lo,hi]=D.isabet?.[c]||[0,100],p=100*x.i/x.k;return'<span style="color:'+renk(p,[lo,hi],[lo-10,hi+10])+'">%'+p.toFixed(0)+' isabet</span><span class="k"> '+c+' '+lo+'–'+hi+'</span>'},ad=a=>'<b style="color:'+(KR.find(k=>k.ad==a)?.renk||'#fff')+'">'+a+'</b>';
+ const t0=performance.now();el.innerHTML='<h3>Denge: her ikili '+K+' maç…</h3>';
+ dengeKos(K,f=>el.innerHTML='<h3>Denge: %'+(100*f).toFixed(0)+'</h3>').then(({vs,kr})=>{
+  const A=KR.map(k=>k.ad),g=a=>kr[a].mac?kr[a].g/kr[a].mac:0;
+  let h='<h3>Denge raporu</h3><div class="k">her ikili '+K+' maç · bir eşleşmenin payı ±'+(98/Math.sqrt(K)).toFixed(0)+' puan oynar · '+((performance.now()-t0)/1000).toFixed(1)+' sn</div>';
+  h+='<table><tr><th>karakter</th><th>genel</th><th>hasar/sn</th><th>maç</th><th>skill payları</th></tr>';
+  for(const a of A){const r=kr[a],dps=r.h/(r.sure/60),sure=r.sure/r.mac/60,sk=Object.entries(r.sk).map(([s,x])=>[s,x.h,x]).sort((x,y)=>y[1]-x[1]);
+   h+='<tr><td>'+ad(a)+'</td><td style="color:'+renk(100*g(a),D.genel||[45,55],D.genelUyari)+'">'+yz(g(a))+'</td><td style="color:'+renk(dps,D.hasarSn||[0,99])+'">'+dps.toFixed(2)+'</td>'
+    +'<td style="color:'+renk(sure,D.sure||[0,99])+'">'+sure.toFixed(0)+' sn</td><td>'+sk.map(([s,d,x],i)=>'<span style="color:'+(!i&&d/r.h*100>(D.tekSkill||100)||KR.find(k=>k.ad==a).skiller.find(x=>x.ad==s)?.tek&&d/r.h*100>(D.ulti||100)?'#ff4d5a':'#aaa')+'">'+s+' '+yz(d/r.h)+'</span> <span class="k">('+(x.k?(x.k/r.mac).toFixed(1)+'×/maç, '+isb(a,s,x)+(x.h?', '+(x.v/x.i).toFixed(1)+' vuruş/isabet':''):'pasif, '+(x.v/r.mac).toFixed(1)+' vuruş/maç')+')</span>').join(' · ')+'</td></tr>'}
+  h+='</table><h3>Eşleşmeler <span class="k">satırdakinin sütundakine karşı kazanma oranı</span></h3><table><tr><th></th>'+A.map(ad).map(x=>'<th>'+x+'</th>').join('')+'</tr>';
+  for(const a of A){h+='<tr><td>'+ad(a)+'</td>';for(const b of A){if(a==b){h+='<td class="k">·</td>';continue}
+   const w=vs[a+'>'+b]||0,t=w+(vs[b+'>'+a]||0),x=t?100*w/t:50;h+='<td style="color:'+renk(x,D.eslesme||[40,60],D.eslesmeUyari||[35,65])+'">'+x.toFixed(0)+'%</td>'}h+='</tr>'}
+  h+='</table><div class="k">yeşil: standart içinde · sarı: izlenmeli · kırmızı: düzeltilmeli. Standartlar ve güç bütçesi karakterler.js başındaki DENGE nesnesinde.</div><br>'
+   +'<button id="oner" style="font:inherit;background:#111;color:#ddd;border:1px solid #333;border-radius:8px;padding:6px 12px">çarpan öner</button> <span id="onr" class="k"></span><br><br>'+tablo(oku(),'Gerçek maçlar (bu tarayıcıda, panelde oynananlar)');
+  el.innerHTML=h;document.getElementById('oner').onclick=carpanOner})}
+// genel oranı %50'ye çeken hasar çarpanını arar (6 tur, ikili başına 200 maç). Mekanik sorunu çarpanla örtme: yalnızca son ±5 puan için.
+async function carpanOner(){const yaz=t=>document.getElementById('onr').innerHTML=t,m=Object.fromEntries(KR.map(k=>[k.ad,k.guc||1]));let r;
+ for(let tur=1;tur<=6;tur++){GUC={...m};r=await dengeKos(200,f=>yaz('tur '+tur+'/6 · %'+(100*f).toFixed(0)));
+  for(const k of KR){const x=r.kr[k.ad],g=x.g/x.mac;m[k.ad]=Math.min(1.5,Math.max(.6,m[k.ad]*Math.exp((.5-g)*.7)))}
+  const ort=KR.reduce((s,k)=>s+m[k.ad],0)/KR.length;for(const k of KR)m[k.ad]/=ort}  // ortalama 1'de kalsın: maç süresi kaymasın
+ GUC={};yaz('öneri (karakterde guc: x): '+KR.map(k=>k.ad+' '+m[k.ad].toFixed(2)+' (şimdi '+(k.guc||1)+', son turda '+(100*r.kr[k.ad].g/r.kr[k.ad].mac).toFixed(0)+'%)').join(' · '))}
+
+// ---- skill demosu: ?demo=TOJI,MAKI her skilli sırayla gösterir (?rakip=GOJO kuklayı seçer). Kukla saldırmaz, canlar dolar, maç bitmez.
+// Skilldeki demo(ben, rakip, o) gösterimden hemen önce durumu hazırlar (ör. dolu kılıç).
+function demoKur(){const adlar=Q.get('demo').toUpperCase().split(',').filter(Boolean),L=[],dm=document.getElementById('dm');
+ for(const a of adlar){const i=KR.findIndex(k=>k.ad==a);if(i>=0)KR[i].skiller.forEach((s,j)=>s.kullan&&L.push([i,j]))}
+ if(!L.length)return;
+ const rk=(Q.get('rakip')||'').toUpperCase(),kukla=i=>{const j=KR.findIndex(k=>k.ad==rk);return j>=0&&j!=i?j:KR.findIndex((k,j)=>j!=i&&!adlar.includes(k.ad))};
+ let n=-1,son=0;
+ o.demoAdim=()=>{for(const x of o.T){x.bek.fill(Infinity);if(x.hp<x.mx*.3)x.hp=x.mx*.6}
+  if(o.t<son)return;
+  const[i,j]=L[++n%L.length],s=KR[i].skiller[j];
+  if(o.T[0].k!==KR[i]||o.T[1].k!==KR[kukla(i)]||o.t>4000){o.T=[savasci(KR[i],-1),savasci(KR[kukla(i)],1)];o.nes=[];o.fx=[];o.duvar=[];o.t=1}
+  const[B,E]=o.T;B.hp=s.tek?B.mx*.4:Math.max(B.hp,B.mx*.6);B.bek.fill(Infinity);E.bek.fill(Infinity);
+  for(const d of[60,130,250,330]){B.x=o.W/2-d/2;E.x=o.W/2+d/2;B.y=E.y=o.H*.62;if(!s.kosul||s.kosul(B,E,o))break}  // skillin şartını sağlayan mesafeye dizer
+  for(const x of o.T){x.vx=x.vy=0;x.don=0}
+  s.demo?.(B,E,o);s.kullan(B,E,o);son=o.t+(s.tek?270:200);
+  const pas=KR[i].skiller.filter(x=>!x.kullan).map(x=>x.ad).join(', ');
+  dm.innerHTML=KR[i].ad+' · '+s.ad+(s.tek?' (ulti)':'')+(pas?'<br><small>pasif: '+pas+'</small>':'')}}
+
+boyut();
+if(Q.has('denge'))dengeSayfa();else if(SIM)simSayfa();else{addEventListener('resize',boyut);yeniMac();if(Q.has('demo'))demoKur();requestAnimationFrame(dongu)}
+</script>
+</body>
+</html>

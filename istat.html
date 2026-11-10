@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arena istatistik</title>
+<style>
+@font-face{font-family:JB;src:url(/fonts/jetbrainsmono-latin.woff2) format('woff2');font-weight:100 800}
+html,body{margin:0;background:#000;color:#b4b4b4;font:15px/1.4 JB,monospace;font-variant-numeric:tabular-nums}
+body{padding:20px 70px 20px 22px;box-sizing:border-box;height:100vh;overflow:auto;display:flex;gap:28px;flex-wrap:wrap;align-content:flex-start}
+section{flex:1 1 320px;min-width:0}
+h2{margin:0 0 12px;font-size:12px;font-weight:400;letter-spacing:.12em;color:#636363}
+.ozet{flex-basis:100%;display:flex;gap:28px;flex-wrap:wrap;color:#8a8a8a}
+.ozet b{color:#e8e8e8;font-weight:600}
+table{border-collapse:collapse;width:100%}
+td,th{padding:7px 10px 7px 0;text-align:right;white-space:nowrap}
+th{font-weight:400;color:#636363;font-size:12px}
+td:first-child,th:first-child{text-align:left}
+tr+tr td{border-top:1px solid #1c1c1c}
+.ad{font-weight:600;letter-spacing:.04em}
+.ad i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+.oran{color:#e8e8e8;font-weight:600}
+.bar{height:3px;background:#1c1c1c;border-radius:2px;margin-top:5px;overflow:hidden}.bar i{display:block;height:100%}
+.bos{color:#3a3a3a}
+small{color:#636363}
+</style>
+</head>
+<body>
+<div class="ozet" id="ozet"></div>
+<section><h2>SIRALAMA · KAZANMA ORANI</h2><table id="sira"></table></section>
+<section><h2>KİM KİMİ YENDİ · satırdaki sütundakini</h2><table id="vs"></table></section>
+<script src="karakterler.js"></script>
+<script>
+// Oyunun yazdığı 'arena-istat' kaydını okur: {k:{AD:{mac,g,m}}, vs:{'A>B':n}, b}. Aynı adresteki (panel) maçlar.
+let st; try { st = JSON.parse(localStorage.getItem('arena-istat')) } catch {} st ||= { k: {}, vs: {}, b: 0 };
+const renk = Object.fromEntries(KARAKTERLER.map(k => [k.ad, k.renk]));
+const adlar = [...new Set([...KARAKTERLER.map(k => k.ad), ...Object.keys(st.k)])];
+const r = a => st.k[a] || { mac: 0, g: 0, m: 0 }, yuz = a => r(a).mac ? r(a).g / r(a).mac : -1;
+const ad = a => `<span class="ad" style="color:${renk[a] || '#ccc'}"><i style="background:${renk[a] || '#ccc'}"></i>${a}</span>`;
+const sira = [...adlar].sort((a, b) => yuz(b) - yuz(a) || r(b).g - r(a).g);
+const toplam = Object.values(st.vs).reduce((s, n) => s + n, 0) + (st.b || 0);
+const cok = [...adlar].sort((a, b) => r(b).g - r(a).g)[0];
+document.getElementById('ozet').innerHTML = toplam
+  ? `<span>toplam <b>${toplam}</b> maç</span><span>en güçlü <b style="color:${renk[sira[0]]}">${sira[0]}</b> %${(100 * yuz(sira[0])).toFixed(0)}</span>`
+    + `<span>en çok galibiyet <b style="color:${renk[cok]}">${cok}</b> ${r(cok).g}</span><span>berabere <b>${st.b || 0}</b></span>`
+  : '<span>Henüz maç yok. Panel boşta kalınca oyun başlar.</span>';
+document.getElementById('sira').innerHTML = '<tr><th></th><th>maç</th><th>G</th><th>M</th><th>oran</th></tr>' + sira.map(a => {
+  const x = r(a), p = x.mac ? 100 * x.g / x.mac : 0;
+  return `<tr><td>${ad(a)}<div class="bar"><i style="width:${p}%;background:${renk[a] || '#ccc'}"></i></div></td><td>${x.mac}</td><td>${x.g}</td><td>${x.m}</td><td class="oran">${x.mac ? '%' + p.toFixed(0) : '<span class=bos>—</span>'}</td></tr>`;
+}).join('');
+document.getElementById('vs').innerHTML = '<tr><th></th>' + adlar.map(b => `<th style="color:${renk[b]}">${b}</th>`).join('') + '</tr>' + adlar.map(a =>
+  `<tr><td>${ad(a)}</td>` + adlar.map(b => {
+    if (a == b) return '<td class="bos">·</td>';
+    const g = st.vs[a + '>' + b] || 0, t = g + (st.vs[b + '>' + a] || 0);
+    return t ? `<td><span class="oran">${g}</span> <small>%${(100 * g / t).toFixed(0)}</small></td>` : '<td class="bos">—</td>';
+  }).join('') + '</tr>').join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "arena-test",
+      "runtimeExecutable": "D:\Projects\Dock\.venv\Scripts\python.exe",
+      "runtimeArgs": ["-m", "http.server", "8799", "--bind", "127.0.0.1", "--directory", "D:\Projects\Arena"],
+      "port": 8799
+    }
+  ]
+}
