@@ -11,6 +11,6 @@ Kendi top dövüş oyunumuz: iki rastgele chibi kafa top dövüşür, maç bitin
 - **8765 Dock'un gerçek panel sunucusu. Kapatma, yeniden başlatma, testte kullanma.** Testler 8799'da: `.claude/launch.json` → `arena-test`. Adres `http://localhost:8799/`.
 - Büyük adımdan önce ne yapacağını ve neye benzeyeceğini anlat, onay bekle.
 - Değiştirmeden önce commit at (yedek dosyası yerine git). Eski yedek dosyaları `yedek/` içinde, git'e girmez.
-- Push = internette yayın. Kullanıcı istemeden push etme.
+- Push = internette yayın. Biten ve kullanıcının demoda gördüğü/onayladığı her değişikliği sormadan commit + push et (kullanıcı kararı: telefondan güncel hâli görmek istiyor). Yarım iş, deneme ya da denge ölçümü push edilmez.
 
 Karakter eklemek ya da oyunu geliştirmek için önce `README.md` dosyasını oku: test araçları, kalıcı tasarım kararları, kadro, kaynak bayrakları, güncel denge ve açık konular orada.
