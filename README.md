@@ -28,7 +28,8 @@ URL anahtarları:
 | `?denge=300` | Denge raporu: her ikili N maç; genel oran, hasar/sn, skill payları ve isabet, eşleşme tablosu, "çarpan öner" |
 | `?sim=1000` / `?sim` | Ekransız N maç / kayıtlı istatistik |
 | `?ucus=1` / `?ucus=0` | Herkesi uçurur / yere indirir |
-| `?oran=1.3` | Arena oranını dener (denge 1.5 ve 1.3'te ölçüldü; `?dikey=1` 1.3 kullanır) |
+| `?oran=1.5` | Arena oranını dener (varsayılan 1.3; denge 1.3'e göre) |
+| `?dikey` / `?dikey=0` | Dikey 9:16 video düzenini zorlar / kapatır (telefonda dik tutunca kendiliğinden açık) |
 
 Tarayıcı konsolunda işe yarayan parçalar (`?denge=1` sayfasında motor simülasyon kipinde yüklenir):
 
@@ -57,7 +58,7 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
 
 - **Görünüm:**
   - OLED siyah zemin, neon can halkalı chibi kafa toplar, çok az yazı.
-  - Arena sabit 660×440 dikdörtgen, ekranın ortasında.
+  - Arena sabit 572×440 dikdörtgen (oran 1.3, 2026-11-10'dan beri; denge bu oranda), ekranın ortasında.
   - Smash tarzı can göstergeleri arenanın iki yanında, asla arenanın içinde değil.
   - Arenada büyük hasar sayısı yok; hasar yan göstergede küçük "−N" olarak çıkar.
 - **Kafa çizimi:**
@@ -75,7 +76,7 @@ buyut=(ax,ay,w,h)=>{const src=document.querySelector('canvas:not(#galeri)');let 
   - Oyun bir an donar, arena siyah-beyaza döner (beyaz zemin, mürekkep siluetler), siyah hız çizgileri çıkar.
   - `ters=false` sürümü sadedir: daha kısa donma, yine siyah-beyaz kare ve beyaz flaş.
   - Siyah-beyaz geçiş `ciz()` sonunda `kareSiyahBeyaz` ile yapılır (o karedeki her efekt döner, yan göstergeler renkli yeniden çizilir). `ctx.filter` kullanma: PC'de kareyi ikiye katlıyor, iOS Safari'de yok (renkli negatif kalıyordu); karışım modları (saturation, difference, color-burn) kullanılır.
-- **Dikey video düzeni (deneme):** `?dikey=1` 9:16 çerçeve, göstergeler arenanın üstünde ve altında eğik kesimli bantlarda (büyük kafa ileride karakter görseliyle değişecek), arena `oran` 1.3, VS menüsü gizli. `?dikey=2` ikisi üstte, `?dikey=3` dikey arena: kullanıcı 1'i seçti.
+- **Dikey video düzeni (ana format):** telefonda dik tutunca ya da `?dikey` ile 9:16 çerçeve (yatay ekran ve panel iframe'i yan göstergeli düzende kalır), göstergeler arenanın üstünde ve altında eğik kesimli bantlarda (büyük kafa ileride karakter görseliyle değişecek), arena `oran` 1.3, VS menüsü gizli. `?dikey=2` ikisi üstte, `?dikey=3` dikey arena: kullanıcı 1'i seçti.
 - **Maç sonu:** donmaz; 4 sn boyunca 100 kat ağır çekim (`YAVAS` .01, o anda durmuş gibi görünür), toplar kareler arasında kayar.
 - **Futbol topu:**
   - Arenada tek top var; yalnızca topla oynayan karakter (`top: true`: Isagi, Kaiser) varken doğar.

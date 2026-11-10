@@ -38,10 +38,12 @@ const H=440,GR=.1,RS=.9,KRIT=.1,KRITX=1.5,TS=1000/60,MAKS=60*90,X0=6,Y0=6,TAU=Ma
 let GUC={};  // denge aracının denediği geçici hasar çarpanları {AD: x}
 const KR=KARAKTERLER.map(k=>UCUS==null?k:{...k,ucar:UCUS=='1'});
 const cv=document.querySelector('canvas'),c=cv.getContext('2d'),wn=document.getElementById('wn');
-// arena sabit oranlı dikdörtgen, ekranın ortasında; ?oran=1.3 ile denenebilir
+// arena sabit oranlı dikdörtgen (1.3, denge bu oranda), ekranın ortasında; ?oran=1.5 ile denenebilir
 // ?dikey: 9:16 video düzeni denemesi. 1 göstergeler üstte-altta, 2 ikisi üstte yan yana, 3 dikey arena (denge yeniden ölçülmeli)
-const DIKEY=+Q.get('dikey')||0,DZ=[,{T:324,B:324,s:1.5},{T:470,B:330,s:1.35},{T:330,B:300,s:1.1}][DIKEY];
-const ORAN=+Q.get('oran')||(DIKEY==3?.75:DIKEY==1?1.3:1.5),W=Math.round(H*ORAN);let SC=1,OX=0,OY=0;
+// dikey düzen telefonda dik tutunca kendiliğinden açılır (panel iframe'i hariç); ?dikey=0 kapatır, ?dikey zorlar
+// shortcut: yön yüklenirken seçilir, telefon çevrilince sayfa yenilenmeli
+const DQ=Q.get('dikey'),DIKEY=DQ!=null?(DQ===''?1:+DQ||0):(innerHeight>innerWidth*1.2&&window.top===window.self?1:0),DZ=[,{T:324,B:324,s:1.5},{T:470,B:330,s:1.35},{T:330,B:300,s:1.1}][DIKEY];
+const ORAN=+Q.get('oran')||(DIKEY==3?.75:1.3),W=Math.round(H*ORAN);let SC=1,OX=0,OY=0;
 // KEN: yan göstergelere ayrılan en az boşluk; dar ekranda arena küçülür, gösterge hiçbir zaman arenaya girmez
 const KEN=95;
 function boyut(){const d=devicePixelRatio||1;
